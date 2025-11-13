@@ -267,6 +267,7 @@ add_action( 'wp_head', function() {
         font-size: 14px;
         color: #383836;
         background: #ffffff;
+        border: 1px solid #e6e6e6; /* tunn ram runt hela tabellen */
     }
 
     .kp-tech-table col.kp-col-label {
