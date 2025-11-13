@@ -267,6 +267,7 @@ add_action( 'wp_head', function() {
         font-size: 14px;
         color: #383836;
         background: #ffffff;
+        border: 1px solid #e6e6e6; /* tunn ram runt hela tabellen */
     }
 
     .kp-tech-table col.kp-col-label {
@@ -287,6 +288,7 @@ add_action( 'wp_head', function() {
     .kp-tech-table td {
         padding: 8px 10px;
         vertical-align: middle;
+        border: none; /* ta bort dubbla borders som kan ärvas från tema */
     }
 
     /* Första kolumnen – etikett + ikon */
