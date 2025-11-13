@@ -236,6 +236,7 @@ function kp_render_tech_table_shortcode() {
 
     $html  = '<div class="kp-tech-wrapper">';
     $html .= '<table class="kp-tech-table">';
+    $html .= '<colgroup><col class="kp-col-label"><col class="kp-col-value"></colgroup>';
     $html .= $rows_html;
     $html .= '</table>';
     $html .= '</div>';
@@ -268,6 +269,13 @@ add_action( 'wp_head', function() {
         background: #ffffff;
         border: 1px solid #e6e6e6; /* tunn ram runt hela tabellen */
         table-layout: auto; /* låt kolumnbredden styras av innehållet */
+    }
+
+    .kp-tech-table col.kp-col-label {
+        width: auto; /* låt etikettkolumnen följa textens innehåll */
+    }
+    .kp-tech-table col.kp-col-value {
+        width: 100%; /* fyll ut återstående yta med värdekolumnen */
     }
 
     .kp-tech-table tr {
