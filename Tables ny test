@@ -1,0 +1,348 @@
+<?php
+if ( ! defined( 'ABSPATH' ) ) exit;
+
+/**
+ * ==========================================
+ * Klimatpunkten – Teknisk info-tabell
+ * - Metabox med fält på produkter
+ * - Shortcode [kp_tech_table] för att visa tabell
+ * - Döljer rader utan värde
+ * - Ikoner (värme/kyla) i samma kolumn som etikett
+ * ==========================================
+ */
+
+/**
+ * Definiera alla tekniska fält
+ */
+function kp_get_tech_fields() {
+    return [
+        'manufacturer' => [
+            'label' => 'Tillverkare (märke)',
+        ],
+        'energy_label' => [
+            'label' => 'Energiklass ettiket',
+        ],
+        'energy_heat' => [
+            'label' => 'Energiklass Värme',
+            'icon'  => 'heat',
+        ],
+        'power_heat' => [
+            'label' => 'Effekt värme',
+            'icon'  => 'heat',
+        ],
+        'scop' => [
+            'label' => 'SCOP',
+            'icon'  => 'heat',
+        ],
+        'energy_cool' => [
+            'label' => 'Energiklass Kyla',
+            'icon'  => 'cool',
+        ],
+        'power_cool' => [
+            'label' => 'Effekt kyla',
+            'icon'  => 'cool',
+        ],
+        'seer' => [
+            'label' => 'SEER',
+            'icon'  => 'cool',
+        ],
+        'temp_range' => [
+            'label' => 'Garanterad drifttemperatur värmedrift',
+        ],
+        'sound_db' => [
+            'label' => 'Ljud (db)',
+        ],
+        'air_filter' => [
+            'label' => 'Luftrenare',
+        ],
+        'warranty' => [
+            'label' => 'Garanti (år)',
+        ],
+        'model_indoor' => [
+            'label' => 'Modellbeteckning innedel',
+        ],
+        'size_indoor' => [
+            'label' => 'Mått innedel Höjd-Bredd-Djup',
+        ],
+        'clearance_ceiling' => [
+            'label' => 'Avstånd från tak',
+        ],
+        'weight_indoor' => [
+            'label' => 'Innedelens vikt',
+        ],
+        'model_outdoor' => [
+            'label' => 'Modellbeteckning utedel',
+        ],
+        'size_outdoor' => [
+            'label' => 'Mått utedel Höjd-Bredd-Djup',
+        ],
+        'weight_outdoor' => [
+            'label' => 'Utedelens vikt',
+        ],
+        'refrigerant' => [
+            'label' => 'Kylmedium',
+        ],
+        'voltage' => [
+            'label' => 'Nätspänning (V)',
+        ],
+        'fuse' => [
+            'label' => 'Rekommenderad avsäkring amp',
+        ],
+        'power_connect' => [
+            'label' => 'El-koppling via',
+        ],
+        'pipe_dimension' => [
+            'label' => 'Rördimension',
+        ],
+        'pipe_length' => [
+            'label' => 'Max rörlängd (m)',
+        ],
+        'service' => [
+            'label' => 'Service',
+        ],
+    ];
+}
+
+/**
+ * Metabox på produktsidan (backend)
+ */
+add_action( 'add_meta_boxes', function() {
+    add_meta_box(
+        'kp_tech_box',
+        'Teknisk information (Klimatpunkten)',
+        'kp_render_tech_metabox',
+        'product',
+        'normal',
+        'default'
+    );
+});
+
+/**
+ * Rendera metaboxen
+ */
+function kp_render_tech_metabox( $post ) {
+    wp_nonce_field( 'kp_save_tech_meta', 'kp_tech_meta_nonce' );
+
+    $fields = kp_get_tech_fields();
+
+    echo '<table class="form-table kp-tech-metabox">';
+    foreach ( $fields as $key => $data ) {
+        $meta_key = '_kp_' . $key;
+        $value    = get_post_meta( $post->ID, $meta_key, true );
+        ?>
+        <tr>
+            <th scope="row">
+                <label for="kp_<?php echo esc_attr( $key ); ?>">
+                    <?php echo esc_html( $data['label'] ); ?>
+                </label>
+            </th>
+            <td>
+                <input type="text"
+                       id="kp_<?php echo esc_attr( $key ); ?>"
+                       name="kp_<?php echo esc_attr( $key ); ?>"
+                       value="<?php echo esc_attr( $value ); ?>"
+                       class="regular-text"
+                       />
+            </td>
+        </tr>
+        <?php
+    }
+    echo '</table>';
+}
+
+/**
+ * Spara metadatan
+ */
+add_action( 'save_post_product', function( $post_id ) {
+    if ( ! isset( $_POST['kp_tech_meta_nonce'] ) ||
+         ! wp_verify_nonce( $_POST['kp_tech_meta_nonce'], 'kp_save_tech_meta' ) ) {
+        return;
+    }
+
+    if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+        return;
+    }
+
+    if ( ! current_user_can( 'edit_post', $post_id ) ) {
+        return;
+    }
+
+    $fields = kp_get_tech_fields();
+
+    foreach ( $fields as $key => $data ) {
+        $field_name = 'kp_' . $key;
+        $meta_key   = '_kp_' . $key;
+
+        $new_value = isset( $_POST[ $field_name ] ) ? sanitize_text_field( wp_unslash( $_POST[ $field_name ] ) ) : '';
+
+        if ( $new_value === '' ) {
+            delete_post_meta( $post_id, $meta_key );
+        } else {
+            update_post_meta( $post_id, $meta_key, $new_value );
+        }
+    }
+});
+
+/**
+ * Shortcode [kp_tech_table]
+ * (2 kolumner: ikon+etikett / värde)
+ */
+function kp_render_tech_table_shortcode() {
+    if ( ! is_singular( 'product' ) ) {
+        return '';
+    }
+
+    global $post;
+    if ( ! $post ) {
+        return '';
+    }
+
+    $fields = kp_get_tech_fields();
+    $rows_html = '';
+
+    foreach ( $fields as $key => $data ) {
+        $meta_key = '_kp_' . $key;
+        $value    = get_post_meta( $post->ID, $meta_key, true );
+
+        if ( $value === '' || $value === null ) {
+            continue; // hoppa över tomma fält
+        }
+
+        // Ikon
+        $icon_html = '';
+        if ( ! empty( $data['icon'] ) ) {
+            if ( $data['icon'] === 'heat' ) {
+                $icon_html = '<span class="kp-tech-icon kp-icon-heat material-symbols-outlined" aria-hidden="true">local_fire_department</span>';
+            } elseif ( $data['icon'] === 'cool' ) {
+                $icon_html = '<span class="kp-tech-icon kp-icon-cool material-symbols-outlined" aria-hidden="true">ac_unit</span>';
+            }
+        }
+
+        // ENDAST 2 celler: <th> (ikon+text) + <td> (värde)
+        $rows_html .= sprintf(
+            '<tr>
+                <th class="kp-tech-label">%1$s<span class="kp-tech-label-text">%2$s</span></th>
+                <td class="kp-tech-value">%3$s</td>
+            </tr>',
+            $icon_html,
+            esc_html( $data['label'] ),
+            esc_html( $value )
+        );
+    }
+
+    if ( $rows_html === '' ) {
+        return '';
+    }
+
+    $html  = '<div class="kp-tech-wrapper">';
+    $html .= '<table class="kp-tech-table">';
+    $html .= '<colgroup><col class="kp-col-label"><col class="kp-col-value"></colgroup>';
+    $html .= $rows_html;
+    $html .= '</table>';
+    $html .= '</div>';
+
+    return $html;
+}
+add_shortcode( 'kp_tech_table', 'kp_render_tech_table_shortcode' );
+
+/**
+ * CSS + font för ikoner
+ */
+add_action( 'wp_head', function() {
+    if ( ! is_product() ) return;
+    ?>
+    <!-- Material Symbols för ikoner -->
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0" />
+    <style>
+    .kp-tech-wrapper {
+        margin-top: 20px;
+        max-width: 780px; /* så tabellen inte drar ut sig över hela sidan */
+    }
+
+    .kp-tech-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        font-size: 14px;
+        color: #383836;
+        background: #ffffff;
+    }
+
+    .kp-tech-table col.kp-col-label {
+        width: 45%;
+    }
+    .kp-tech-table col.kp-col-value {
+        width: 55%;
+    }
+
+    .kp-tech-table tr {
+        border-bottom: 1px solid #e6e6e6;
+    }
+    .kp-tech-table tr:last-child {
+        border-bottom: none;
+    }
+
+    .kp-tech-table th,
+    .kp-tech-table td {
+        padding: 8px 10px;
+        vertical-align: middle;
+    }
+
+    /* Första kolumnen – etikett + ikon */
+    .kp-tech-table th.kp-tech-label {
+        font-weight: 600;
+        text-align: left;
+        background: #f5f5f5;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        box-sizing: border-box;
+    }
+
+    .kp-tech-table td.kp-tech-value {
+        background: #ffffff;
+        text-align: left;
+        box-sizing: border-box;
+    }
+
+    .kp-tech-label-text {
+        display: inline-block;
+        white-space: normal;
+    }
+
+    /* Ikon-stil (Material Symbols) */
+    .kp-tech-icon.material-symbols-outlined {
+        font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 24;
+        font-size: 18px;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .kp-icon-heat {
+        color: #b01111;   /* värme */
+    }
+    .kp-icon-cool {
+        color: #62a1db;   /* kyla */
+    }
+
+    /* Lite kompaktare på mobil */
+    @media (max-width: 768px) {
+        .kp-tech-wrapper {
+            max-width: 100%;
+        }
+        .kp-tech-table th,
+        .kp-tech-table td {
+            padding: 6px 8px;
+            font-size: 13px;
+        }
+    }
+    </style>
+    <?php
+});
